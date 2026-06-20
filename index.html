@@ -398,6 +398,18 @@
         </div>
       </div>
 
+      <div class="warn-box" style="margin-top:16px">
+        <div class="warn-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Sejak update Spotify Developer Mode Februari 2026
+        </div>
+        <ul>
+          <li>Akun Spotify yang dipakai login harus <strong>Premium</strong></li>
+          <li>App di Development Mode dibatasi maksimal <strong>5 user</strong> terdaftar (tambahkan dirimu di tab "Users and Access" pada dashboard app)</li>
+          <li>Kalau butuh lebih dari 5 user, ajukan <strong>Extended Quota Mode</strong> di dashboard</li>
+        </ul>
+      </div>
+
       <div style="margin-top:20px">
         <input type="text" id="client-id" placeholder="Client ID (dari Spotify Developer Dashboard)">
         <p class="hint">Tersimpan di browser — tidak dikirim ke server manapun</p>
@@ -591,7 +603,7 @@
 </div>
 
 <script>
-const SCOPES = 'playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private user-read-private user-read-email';
+const SCOPES = 'playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private user-read-private';
 let accessToken = null;
 let userProfile = null;
 let playlists = [];
@@ -701,14 +713,40 @@ async function initMain() {
   loadPlaylists();
 }
 
-async function spotifyFetch(url, opts = {}) {
+// Generic fetch wrapper with meaningful error surfacing + 429 exponential backoff.
+async function spotifyFetch(url, opts = {}, retryCount = 0) {
+  let resp;
   try {
-    const resp = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }, ...opts });
-    if (resp.status === 401) { showStatus('Token expired. Silakan login ulang.', 'danger'); logout(); return null; }
-    if (resp.status === 204) return {};
-    if (!resp.ok) return null;
-    return resp.json();
-  } catch { return null; }
+    resp = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }, ...opts });
+  } catch (e) {
+    console.error('Network error calling', url, e);
+    return null;
+  }
+  if (resp.status === 401) { showStatus('Token expired atau tidak valid. Silakan login ulang.', 'danger'); logout(); return null; }
+  if (resp.status === 429) {
+    if (retryCount >= 5) return null; // give up after a few backoffs
+    const retryAfter = parseInt(resp.headers.get('Retry-After'), 10) || Math.pow(2, retryCount);
+    await new Promise(res => setTimeout(res, retryAfter * 1000));
+    return spotifyFetch(url, opts, retryCount + 1);
+  }
+  if (resp.status === 204) return {};
+  if (!resp.ok) {
+    const msg = await extractErrorMessage(resp);
+    console.error(`Spotify API error ${resp.status} on ${url}:`, msg);
+    return null;
+  }
+  return resp.json();
+}
+
+// Pulls a human-readable message out of a Spotify error response body.
+async function extractErrorMessage(resp) {
+  try {
+    const body = await resp.clone().json();
+    return body?.error?.message || `HTTP ${resp.status}`;
+  } catch {
+    try { return (await resp.text()) || `HTTP ${resp.status}`; }
+    catch { return `HTTP ${resp.status}`; }
+  }
 }
 
 async function loadPlaylists() {
@@ -732,7 +770,7 @@ async function loadPlaylists() {
         : `<div class="pl-img-ph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>`}
       <div class="pl-info">
         <div class="pl-name">${esc(p.name)}</div>
-        <div class="pl-meta">${p.tracks.total} lagu · ${p.public ? 'Publik' : 'Privat'}${p.collaborative ? ' · Kolaboratif' : ''}</div>
+        <div class="pl-meta">${p.items.total} lagu · ${p.public ? 'Publik' : 'Privat'}${p.collaborative ? ' · Kolaboratif' : ''}</div>
       </div>
       <input type="checkbox" class="checkbox pl-check" data-idx="${i}" checked>
     </label>
@@ -743,15 +781,15 @@ function selectAll(v) { document.querySelectorAll('.pl-check').forEach(c => c.ch
 function getSelected() { return [...document.querySelectorAll('.pl-check:checked')].map(c => playlists[+c.dataset.idx]); }
 
 // ── EXPORT ──
-async function getPlaylistTracks(id) {
-  let tracks = [], url = `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100`;
+async function getPlaylistItems(id) {
+  let items = [], url = `https://api.spotify.com/v1/playlists/${id}/items?limit=100`;
   while (url) {
     const data = await spotifyFetch(url);
     if (!data) break;
-    tracks.push(...(data.items || []).filter(i => i && i.track && i.track.id));
+    items.push(...(data.items || []).filter(i => i && i.item && i.item.id));
     url = data.next;
   }
-  return tracks;
+  return items;
 }
 
 async function startExport() {
@@ -782,18 +820,18 @@ async function startExport() {
       id: p.id, name: p.name,
       description: p.description || '',
       public: p.public, collaborative: p.collaborative,
-      tracks_total: p.tracks.total,
+      tracks_total: p.items.total,
       owner: p.owner?.id || ''
     };
     if (incImg && p.images && p.images[0]) obj.image_url = p.images[0].url;
     if (incTracks) {
-      const tracks = await getPlaylistTracks(p.id);
-      obj.tracks = tracks.map(t => ({
-        uri: t.track.uri,
-        name: t.track.name,
-        artists: t.track.artists.map(a => a.name).join(', '),
-        album: t.track.album?.name || '',
-        duration_ms: t.track.duration_ms,
+      const items = await getPlaylistItems(p.id);
+      obj.tracks = items.map(t => ({
+        uri: t.item.uri,
+        name: t.item.name,
+        artists: (t.item.artists || []).map(a => a.name).join(', '),
+        album: t.item.album?.name || '',
+        duration_ms: t.item.duration_ms,
         added_at: t.added_at,
         added_by: t.added_by?.id || ''
       }));
@@ -825,12 +863,12 @@ async function exportCSV() {
   let rows = [['Playlist', 'Track Name', 'Artists', 'Album', 'Duration (ms)', 'Added At', 'Added By', 'URI']];
   for (let i = 0; i < sel.length; i++) {
     const p = sel[i];
-    const tracks = await getPlaylistTracks(p.id);
-    tracks.forEach(t => {
-      rows.push([p.name, t.track.name, t.track.artists.map(a => a.name).join('; '), t.track.album?.name || '', t.track.duration_ms || '', t.added_at || '', t.added_by?.id || '', t.track.uri]);
+    const items = await getPlaylistItems(p.id);
+    items.forEach(t => {
+      rows.push([p.name, t.item.name, (t.item.artists || []).map(a => a.name).join('; '), t.item.album?.name || '', t.item.duration_ms || '', t.added_at || '', t.added_by?.id || '', t.item.uri]);
     });
     bar.style.width = ((i + 1) / sel.length * 100) + '%';
-    addLog(log, `${p.name}: ${tracks.length} lagu`);
+    addLog(log, `${p.name}: ${items.length} lagu`);
   }
 
   const csv = rows.map(r => r.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -879,6 +917,52 @@ function showImportPreview() {
   document.getElementById('import-preview').style.display = 'block';
 }
 
+// Creates a playlist for the current user (POST /me/playlists) with retry-on-429.
+async function createPlaylistForCurrentUser(body, retryCount = 0) {
+  let resp;
+  try {
+    resp = await fetch('https://api.spotify.com/v1/me/playlists', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch (e) {
+    return { ok: false, error: 'Network error: ' + e.message };
+  }
+  if (resp.status === 429 && retryCount < 5) {
+    const retryAfter = parseInt(resp.headers.get('Retry-After'), 10) || Math.pow(2, retryCount);
+    await new Promise(res => setTimeout(res, retryAfter * 1000));
+    return createPlaylistForCurrentUser(body, retryCount + 1);
+  }
+  if (!resp.ok) {
+    return { ok: false, error: await extractErrorMessage(resp), status: resp.status };
+  }
+  return { ok: true, data: await resp.json() };
+}
+
+// Adds up to 100 URIs at a time to a playlist's items, with retry-on-429.
+async function addItemsToPlaylist(playlistId, uris, retryCount = 0) {
+  let resp;
+  try {
+    resp = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/items`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris })
+    });
+  } catch (e) {
+    return { ok: false, error: 'Network error: ' + e.message };
+  }
+  if (resp.status === 429 && retryCount < 5) {
+    const retryAfter = parseInt(resp.headers.get('Retry-After'), 10) || Math.pow(2, retryCount);
+    await new Promise(res => setTimeout(res, retryAfter * 1000));
+    return addItemsToPlaylist(playlistId, uris, retryCount + 1);
+  }
+  if (!resp.ok) {
+    return { ok: false, error: await extractErrorMessage(resp), status: resp.status };
+  }
+  return { ok: true };
+}
+
 async function startImport() {
   if (!importData) return;
   const btn = document.getElementById('btn-import');
@@ -894,23 +978,19 @@ async function startImport() {
   for (let i = 0; i < pls.length; i++) {
     const p = pls[i];
     addLog(log, `[${i + 1}/${pls.length}] Membuat "${p.name}"...`);
-    const resp = await fetch(`https://api.spotify.com/v1/users/${userProfile.id}/playlists`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: p.name, description: p.description || '', public: p.public ?? false, collaborative: p.collaborative ?? false })
+    const created = await createPlaylistForCurrentUser({
+      name: p.name, description: p.description || '', public: p.public ?? false, collaborative: p.collaborative ?? false
     });
-    if (!resp.ok) { addLog(log, `  ✗ Gagal membuat playlist`); fail++; continue; }
-    const created = await resp.json();
+    if (!created.ok) { addLog(log, `  ✗ Gagal membuat playlist: ${created.error}`); fail++; continue; }
     if (p.tracks && p.tracks.length) {
       const uris = p.tracks.map(t => t.uri).filter(Boolean);
+      let added = 0;
       for (let j = 0; j < uris.length; j += 100) {
-        await fetch(`https://api.spotify.com/v1/playlists/${created.id}/tracks`, {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uris: uris.slice(j, j + 100) })
-        });
+        const r = await addItemsToPlaylist(created.data.id, uris.slice(j, j + 100));
+        if (r.ok) added += Math.min(100, uris.length - j);
+        else addLog(log, `  ⚠ Gagal menambah sebagian lagu: ${r.error}`);
       }
-      addLog(log, `  ✓ ${uris.length} lagu ditambahkan`);
+      addLog(log, `  ✓ ${added} lagu ditambahkan`);
     }
     ok++;
     bar.style.width = ((i + 1) / pls.length * 100) + '%';
@@ -1058,35 +1138,21 @@ async function startCsvImport() {
 
     addLog(log, `[${i+1}/${csvPlaylists.length}] Membuat "${customName}" (${uris.length} lagu)...`);
 
-    const resp = await fetch(`https://api.spotify.com/v1/users/${userProfile.id}/playlists`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: customName, description: 'Imported via Spotify Playlist Backup', public: false })
+    const created = await createPlaylistForCurrentUser({
+      name: customName, description: 'Imported via Spotify Playlist Backup', public: false
     });
 
-    if (!resp.ok) {
-      const errText = await resp.text();
-      addLog(log, `  ✗ Gagal membuat playlist: ${errText}`);
+    if (!created.ok) {
+      addLog(log, `  ✗ Gagal membuat playlist: ${created.error}`);
       fail++; continue;
     }
 
-    const created = await resp.json();
     let added = 0;
     for (let j = 0; j < uris.length; j += 100) {
       const chunk = uris.slice(j, j + 100);
-      const r = await fetch(`https://api.spotify.com/v1/playlists/${created.id}/tracks`, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uris: chunk })
-      });
+      const r = await addItemsToPlaylist(created.data.id, chunk);
       if (r.ok) added += chunk.length;
-      // rate limit handling
-      if (r.status === 429) {
-        const retry = r.headers.get('Retry-After') || 2;
-        addLog(log, `  ⏳ Rate limit, tunggu ${retry}s...`);
-        await new Promise(res => setTimeout(res, retry * 1000));
-        j -= 100; // retry chunk
-      }
+      else addLog(log, `  ⚠ Gagal menambah sebagian lagu: ${r.error}`);
     }
     addLog(log, `  ✓ ${added} lagu berhasil ditambahkan`);
     ok++;
