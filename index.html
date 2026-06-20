@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotify Playlist Backup</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+<style>
+  :root {
+    --green: #1DB954;
+    --green-dark: #158a3e;
+    --green-dim: #1a3d28;
+    --bg: #0d0d0d;
+    --surface: #141414;
+    --surface2: #1a1a1a;
+    --surface3: #222;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #999;
+    --text3: #666;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --danger: #e74c3c;
+    --danger-bg: rgba(231,76,60,0.12);
+    --warning: #f39c12;
+    --warning-bg: rgba(243,156,18,0.12);
+    --info-bg: rgba(29,185,84,0.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,13,13,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex; align-items: center; gap: 12px;
+    height: 56px;
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 600; color: var(--text);
+    text-decoration: none;
+  }
+  .nav-logo svg { color: var(--green); }
+  .nav-spacer { flex: 1; }
+  .nav-user {
+    display: none; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--text2);
+  }
+  .nav-user.visible { display: flex; }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--green-dim);
+    border: 1.5px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: var(--green);
+    flex-shrink: 0;
+  }
+  .btn-logout {
+    background: transparent; border: 1px solid var(--border2);
+    color: var(--text2); font-size: 12px; padding: 5px 12px;
+    border-radius: 6px; cursor: pointer; font-family: var(--font);
+    transition: all .15s;
+  }
+  .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ── LAYOUT ── */
+  .page { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  /* ── HERO ── */
+  .hero { text-align: center; margin-bottom: 48px; }
+  .hero-icon {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--green-dim);
+    border: 2px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    box-shadow: 0 0 32px rgba(29,185,84,0.15);
+  }
+  .hero h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+  .hero h1 span { color: var(--green); }
+  .hero p { font-size: 15px; color: var(--text2); max-width: 440px; margin: 0 auto; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text3);
+    margin-bottom: 16px;
+  }
+
+  /* ── STATUS BAR ── */
+  #status-bar {
+    display: none;
+    align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+  }
+  #status-bar.info { background: var(--info-bg); border-color: rgba(29,185,84,0.25); color: #5dde8a; display: flex; }
+  #status-bar.danger { background: var(--danger-bg); border-color: rgba(231,76,60,0.3); color: #f1877a; display: flex; }
+  #status-bar.success { background: var(--info-bg); border-color: rgba(29,185,84,0.35); color: var(--green); display: flex; }
+
+  /* ── STEPS ── */
+  .steps { display: flex; flex-direction: column; gap: 14px; }
+  .step { display: flex; gap: 14px; align-items: flex-start; }
+  .step-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--surface3); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: var(--text2);
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .step-body { font-size: 14px; color: var(--text2); line-height: 1.6; }
+  .step-body a { color: var(--green); text-decoration: none; }
+  .step-body a:hover { text-decoration: underline; }
+  .step-body code {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--surface3); color: #7ec8a4;
+    padding: 1px 6px; border-radius: 4px;
+    border: 1px solid var(--border2);
+  }
+
+  /* ── INPUTS ── */
+  input[type=text], input[type=password] {
+    width: 100%;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font);
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .15s;
+    margin-bottom: 8px;
+  }
+  input[type=text]:focus, input[type=password]:focus {
+    border-color: var(--green);
+  }
+  input::placeholder { color: var(--text3); }
+  .hint { font-size: 11px; color: var(--text3); margin-top: -4px; margin-bottom: 12px; }
+  .hint a { color: var(--green); text-decoration: none; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 18px; border-radius: var(--radius);
+    font-size: 14px; font-weight: 500; font-family: var(--font);
+    cursor: pointer; border: none; transition: all .15s;
+    width: 100%; justify-content: center;
+  }
+  .btn-primary { background: var(--green); color: #000; }
+  .btn-primary:hover { background: #22d460; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border2);
+  }
+  .btn-secondary:hover { background: var(--surface2); border-color: var(--border2); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; }
+  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--text3); font-size: 12px; margin: 20px 0;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
+  .tab {
+    flex: 1; padding: 9px; border-radius: 8px;
+    border: none; background: transparent;
+    color: var(--text2); font-size: 13px; font-weight: 500;
+    font-family: var(--font); cursor: pointer;
+    transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 7px;
+  }
+  .tab.active { background: var(--surface3); color: var(--text); }
+  .tab svg { opacity: .7; }
+  .tab.active svg { opacity: 1; color: var(--green); }
+
+  /* ── PLAYLIST LIST ── */
+  .pl-list { display: flex; flex-direction: column; }
+  .pl-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .1s;
+  }
+  .pl-item:last-child { border-bottom: none; }
+  .pl-item:hover { opacity: .85; }
+  .pl-img {
+    width: 44px; height: 44px; border-radius: 6px;
+    object-fit: cover; flex-shrink: 0;
+    background: var(--surface3);
+  }
+  .pl-img-ph {
+    width: 44px; height: 44px; border-radius: 6px;
+    background: var(--surface3); border: 1px solid var(--border2);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--text3);
+  }
+  .pl-info { flex: 1; min-width: 0; }
+  .pl-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .checkbox {
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 1.5px solid var(--border2); background: transparent;
+    flex-shrink: 0; appearance: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s; position: relative;
+  }
+  .checkbox:checked { background: var(--green); border-color: var(--green); }
+  .checkbox:checked::after {
+    content: '✓'; position: absolute;
+    font-size: 11px; color: #000; font-weight: 700;
+  }
+
+  /* ── SELECT ALL ROW ── */
+  .select-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .select-row .card-title { margin-bottom: 0; }
+  .btn-link {
+    background: none; border: none; color: var(--green);
+    font-size: 12px; cursor: pointer; font-family: var(--font);
+    padding: 0;
+  }
+  .btn-link:hover { text-decoration: underline; }
+
+  /* ── OPTIONS ── */
+  .opt-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .opt-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text2); cursor: pointer;
+    padding: 10px 14px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    transition: border-color .15s;
+  }
+  .opt-label:hover { border-color: var(--border2); }
+  .opt-label input[type=checkbox] {
+    width: 16px; height: 16px; margin: 0; accent-color: var(--green);
+    flex-shrink: 0;
+  }
+
+  /* ── PROGRESS ── */
+  .progress-wrap {
+    display: none; background: var(--surface3);
+    border-radius: 100px; height: 4px; margin: 14px 0; overflow: hidden;
+  }
+  .progress-bar {
+    height: 4px; background: var(--green);
+    border-radius: 100px; width: 0%;
+    transition: width .3s ease;
+  }
+
+  /* ── LOG ── */
+  .log-box {
+    display: none;
+    background: var(--surface3); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px;
+    font-size: 12px; font-family: var(--mono); color: var(--text2);
+    max-height: 150px; overflow-y: auto; margin-top: 12px; line-height: 1.7;
+  }
+
+  /* ── IMPORT DROP ── */
+  .drop-zone {
+    border: 1.5px dashed var(--border2); border-radius: var(--radius-lg);
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: all .2s;
+  }
+  .drop-zone:hover, .drop-zone.drag {
+    border-color: var(--green);
+    background: var(--info-bg);
+  }
+  .drop-zone svg { color: var(--text3); margin-bottom: 10px; }
+  .drop-icon { font-size: 36px; margin-bottom: 10px; }
+  .drop-zone p { font-size: 14px; color: var(--text2); }
+  .drop-zone .small { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+  /* ── BADGE ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500; padding: 3px 8px;
+    border-radius: 100px;
+  }
+  .badge-green { background: var(--info-bg); color: var(--green); border: 1px solid rgba(29,185,84,.25); }
+  .badge-gray { background: var(--surface3); color: var(--text3); border: 1px solid var(--border); }
+  .badge-warn { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(243,156,18,.25); }
+
+  /* ── WARNING BOX ── */
+  .warn-box {
+    background: var(--warning-bg); border: 1px solid rgba(243,156,18,.2);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  .warn-box ul { padding-left: 18px; font-size: 13px; color: var(--text2); line-height: 1.9; }
+  .warn-box code { font-family: var(--mono); font-size: 11px; background: rgba(0,0,0,.2); padding: 1px 5px; border-radius: 3px; }
+  .warn-title { font-size: 12px; font-weight: 600; color: var(--warning); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+  /* ── SPINNER ── */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.1);
+    border-top-color: var(--green);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    display: inline-block; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── LOADING STATE ── */
+  .skeleton { background: linear-gradient(90deg, var(--surface3) 25%, var(--surface2) 50%, var(--surface3) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 4px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 520px) {
+    .page { padding: 32px 16px 64px; }
+    .hero h1 { font-size: 22px; }
+    .btn-grid, .opt-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.622.622 0 01-.857.207c-2.348-1.435-5.304-1.759-8.785-.964a.623.623 0 01-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 01.207.857zm1.223-2.722a.78.78 0 01-1.072.257c-2.687-1.652-6.785-2.131-9.965-1.166a.78.78 0 01-.973-.519.781.781 0 01.519-.972c3.632-1.102 8.147-.568 11.234 1.328a.78.78 0 01.257 1.072zm.105-2.835c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 11-.543-1.79c3.532-1.072 9.404-.865 13.115 1.338a.935.935 0 01-.954 1.608z"/></svg>
+    Playlist Backup
+  </a>
+  <span class="nav-spacer"></span>
+  <div class="nav-user" id="nav-user">
+    <div class="avatar" id="nav-avatar">?</div>
+    <span id="nav-name" style="font-size:13px;color:var(--text2)"></span>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="page">
+  <div id="status-bar"></div>
+
+  <!-- ═══ LOGIN ═══ -->
+  <div id="login-section">
+    <div class="hero">
+      <div class="hero-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.622.622 0 01-.857.207c-2.348-1.435-5.304-1.759-8.785-.964a.623.623 0 01-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 01.207.857zm1.223-2.722a.78.78 0 01-1.072.257c-2.687-1.652-6.785-2.131-9.965-1.166a.78.78 0 01-.973-.519.781.781 0 01.519-.972c3.632-1.102 8.147-.568 11.234 1.328a.78.78 0 01.257 1.072zm.105-2.835c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 11-.543-1.79c3.532-1.072 9.404-.865 13.115 1.338a.935.935 0 01-.954 1.608z"/></svg>
+      </div>
+      <h1>Backup <span>Playlist</span> Spotify</h1>
+      <p>Export semua playlist ke JSON atau CSV, simpan sebagai backup, lalu import kapan saja.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Setup — Spotify Developer App</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">Buka <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a>, login, lalu klik <strong>Create app</strong>.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">Di <strong>Settings</strong> app, tambahkan Redirect URI:<br>
+            <code id="redirect-display"></code><br>
+            <span style="font-size:12px;color:var(--text3)">(otomatis terisi sesuai URL halaman ini)</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">Copy <strong>Client ID</strong> dari halaman dashboard app, paste di bawah.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px">
+        <input type="text" id="client-id" placeholder="Client ID (dari Spotify Developer Dashboard)">
+        <p class="hint">Tersimpan di browser — tidak dikirim ke server manapun</p>
+        <button class="btn btn-primary" onclick="startLogin()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.622.622 0 01-.857.207c-2.348-1.435-5.304-1.759-8.785-.964a.623.623 0 01-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 01.207.857zm1.223-2.722a.78.78 0 01-1.072.257c-2.687-1.652-6.785-2.131-9.965-1.166a.78.78 0 01-.973-.519.781.781 0 01.519-.972c3.632-1.102 8.147-.568 11.234 1.328a.78.78 0 01.257 1.072zm.105-2.835c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 11-.543-1.79c3.532-1.072 9.404-.865 13.115 1.338a.935.935 0 01-.954 1.608z"/></svg>
+          Login dengan Spotify
+        </button>
+      </div>
+    </div>
+
+    <div class="divider">atau pakai token manual</div>
+
+    <div class="card">
+      <div class="card-title">Access Token Langsung</div>
+      <input type="password" id="manual-token" placeholder="Paste access token dari Spotify Console...">
+      <p class="hint">Dapatkan dari <a href="https://developer.spotify.com/console/get-current-user-playlists/" target="_blank">Spotify Console</a> → klik "Get Token" → centang semua scope playlist. Token valid 1 jam.</p>
+      <button class="btn btn-secondary" onclick="useManualToken()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        Gunakan Token Ini
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN APP ═══ -->
+  <div id="main-section" style="display:none">
+
+    <div class="tabs">
+      <button class="tab active" id="tab-export" onclick="switchTab('export')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Backup
+      </button>
+      <button class="tab" id="tab-import" onclick="switchTab('import')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import Backup
+      </button>
+    </div>
+
+    <!-- EXPORT PANEL -->
+    <div id="panel-export">
+      <div class="card">
+        <div class="select-row">
+          <div class="card-title">Pilih Playlist</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-link" onclick="selectAll(true)">Pilih semua</button>
+            <span style="color:var(--border2)">·</span>
+            <button class="btn-link" onclick="selectAll(false)">Batal semua</button>
+          </div>
+        </div>
+        <div class="pl-list" id="playlist-list">
+          <div style="padding:24px 0;text-align:center;color:var(--text3);font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px">
+            <div class="spinner"></div> Memuat playlist...
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Opsi Export</div>
+        <div class="opt-row">
+          <label class="opt-label">
+            <input type="checkbox" id="include-tracks" checked>
+            Sertakan daftar lagu
+          </label>
+          <label class="opt-label">
+            <input type="checkbox" id="include-images">
+            Sertakan URL cover
+          </label>
+        </div>
+        <div class="progress-wrap" id="exp-prog-wrap"><div class="progress-bar" id="exp-prog-bar"></div></div>
+        <div class="log-box" id="exp-log"></div>
+        <div class="btn-grid">
+          <button class="btn btn-primary" id="btn-export-json" onclick="startExport()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export ke JSON
+          </button>
+          <button class="btn btn-secondary" id="btn-export-csv" onclick="exportCSV()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Export ke CSV
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMPORT PANEL -->
+    <div id="panel-import" style="display:none">
+      <div class="card">
+        <div class="card-title">Import dari File Backup</div>
+        <div class="drop-zone" id="drop-zone"
+          onclick="document.getElementById('import-file').click()"
+          ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+          <div class="drop-icon">📂</div>
+          <p>Klik atau drag & drop file backup di sini</p>
+          <p class="small">Format: .json (hasil export dari tool ini)</p>
+        </div>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="loadImportFile(event)">
+
+        <div id="import-preview" style="display:none;margin-top:20px">
+          <div class="card-title" style="margin-bottom:10px">Preview Backup</div>
+          <div id="import-meta" style="font-size:12px;color:var(--text3);margin-bottom:12px"></div>
+          <div class="pl-list" id="import-list"></div>
+          <div class="progress-wrap" id="imp-prog-wrap"><div class="progress-bar" id="imp-prog-bar"></div></div>
+          <div class="log-box" id="imp-log"></div>
+          <button class="btn btn-primary" id="btn-import" onclick="startImport()" style="margin-top:14px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Import ke Spotify
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="warn-box">
+          <div class="warn-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Catatan penting
+          </div>
+          <ul>
+            <li>Playlist baru dibuat — playlist lama <strong>tidak</strong> terhapus</li>
+            <li>Lagu tidak tersedia di region kamu mungkin tidak bisa diimpor</li>
+            <li>Perlu scope <code>playlist-modify-public</code> & <code>playlist-modify-private</code></li>
+            <li>Lagu diimpor 100 per request (otomatis dipecah)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SCOPES = 'playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private user-read-private user-read-email';
+let accessToken = null;
+let userProfile = null;
+let playlists = [];
+let importData = null;
+
+// ── INIT ──
+(async function init() {
+  document.getElementById('redirect-display').textContent = cleanUrl();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('code')) {
+    const ok = await handleCallback();
+    if (ok) { initMain(); return; }
+  }
+  const saved = localStorage.getItem('spbkp_token');
+  if (saved) { accessToken = saved; initMain(); }
+})();
+
+function cleanUrl() {
+  return window.location.href.split('?')[0].split('#')[0];
+}
+
+// ── AUTH ──
+async function startLogin() {
+  const clientId = document.getElementById('client-id').value.trim();
+  if (!clientId) { showStatus('Masukkan Client ID dulu!', 'danger'); return; }
+  const verifier = generateVerifier();
+  const challenge = await generateChallenge(verifier);
+  localStorage.setItem('spbkp_verifier', verifier);
+  localStorage.setItem('spbkp_client_id', clientId);
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: cleanUrl(),
+    scope: SCOPES,
+    code_challenge_method: 'S256',
+    code_challenge: challenge
+  });
+  window.location = 'https://accounts.spotify.com/authorize?' + params;
+}
+
+function generateVerifier() {
+  const arr = new Uint8Array(56);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function generateChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function handleCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return false;
+  const verifier = localStorage.getItem('spbkp_verifier');
+  const clientId = localStorage.getItem('spbkp_client_id');
+  showStatus('<div class="spinner"></div> Menukarkan kode...', 'info');
+  const resp = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId, grant_type: 'authorization_code',
+      code, redirect_uri: cleanUrl(), code_verifier: verifier
+    })
+  });
+  if (!resp.ok) { showStatus('Gagal dapat token. Coba login ulang.', 'danger'); return false; }
+  const data = await resp.json();
+  accessToken = data.access_token;
+  localStorage.setItem('spbkp_token', accessToken);
+  window.history.replaceState({}, document.title, window.location.pathname);
+  return true;
+}
+
+function useManualToken() {
+  const t = document.getElementById('manual-token').value.trim();
+  if (!t) { showStatus('Token kosong!', 'danger'); return; }
+  accessToken = t;
+  localStorage.setItem('spbkp_token', t);
+  initMain();
+}
+
+function logout() {
+  accessToken = null;
+  localStorage.removeItem('spbkp_token');
+  localStorage.removeItem('spbkp_verifier');
+  document.getElementById('login-section').style.display = 'block';
+  document.getElementById('main-section').style.display = 'none';
+  document.getElementById('nav-user').classList.remove('visible');
+  hideStatus();
+}
+
+// ── MAIN ──
+async function initMain() {
+  showStatus('<div class="spinner"></div> Memuat profil...', 'info');
+  const r = await spotifyFetch('https://api.spotify.com/v1/me');
+  if (!r) { showStatus('Token tidak valid atau expired. Silakan login ulang.', 'danger'); logout(); return; }
+  userProfile = r;
+  const initials = (r.display_name || r.id || '?')[0].toUpperCase();
+  document.getElementById('nav-avatar').textContent = initials;
+  document.getElementById('nav-name').textContent = r.display_name || r.id;
+  document.getElementById('nav-user').classList.add('visible');
+  document.getElementById('login-section').style.display = 'none';
+  document.getElementById('main-section').style.display = 'block';
+  hideStatus();
+  loadPlaylists();
+}
+
+async function spotifyFetch(url, opts = {}) {
+  try {
+    const resp = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken }, ...opts });
+    if (resp.status === 401) { showStatus('Token expired. Silakan login ulang.', 'danger'); logout(); return null; }
+    if (resp.status === 204) return {};
+    if (!resp.ok) return null;
+    return resp.json();
+  } catch { return null; }
+}
+
+async function loadPlaylists() {
+  const el = document.getElementById('playlist-list');
+  playlists = [];
+  let url = 'https://api.spotify.com/v1/me/playlists?limit=50';
+  while (url) {
+    const data = await spotifyFetch(url);
+    if (!data) break;
+    playlists.push(...(data.items || []).filter(Boolean));
+    url = data.next;
+  }
+  if (!playlists.length) {
+    el.innerHTML = '<p style="font-size:14px;color:var(--text3);padding:16px 0">Tidak ada playlist ditemukan.</p>';
+    return;
+  }
+  el.innerHTML = playlists.map((p, i) => `
+    <label class="pl-item">
+      ${p.images && p.images[0]
+        ? `<img class="pl-img" src="${p.images[0].url}" alt="" loading="lazy">`
+        : `<div class="pl-img-ph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>`}
+      <div class="pl-info">
+        <div class="pl-name">${esc(p.name)}</div>
+        <div class="pl-meta">${p.tracks.total} lagu · ${p.public ? 'Publik' : 'Privat'}${p.collaborative ? ' · Kolaboratif' : ''}</div>
+      </div>
+      <input type="checkbox" class="checkbox pl-check" data-idx="${i}" checked>
+    </label>
+  `).join('');
+}
+
+function selectAll(v) { document.querySelectorAll('.pl-check').forEach(c => c.checked = v); }
+function getSelected() { return [...document.querySelectorAll('.pl-check:checked')].map(c => playlists[+c.dataset.idx]); }
+
+// ── EXPORT ──
+async function getPlaylistTracks(id) {
+  let tracks = [], url = `https://api.spotify.com/v1/playlists/${id}/tracks?limit=100`;
+  while (url) {
+    const data = await spotifyFetch(url);
+    if (!data) break;
+    tracks.push(...(data.items || []).filter(i => i && i.track && i.track.id));
+    url = data.next;
+  }
+  return tracks;
+}
+
+async function startExport() {
+  const sel = getSelected();
+  if (!sel.length) { showStatus('Pilih minimal 1 playlist!', 'danger'); return; }
+  const incTracks = document.getElementById('include-tracks').checked;
+  const incImg = document.getElementById('include-images').checked;
+  const log = document.getElementById('exp-log');
+  const wrap = document.getElementById('exp-prog-wrap');
+  const bar = document.getElementById('exp-prog-bar');
+  log.style.display = 'block'; log.textContent = '';
+  wrap.style.display = 'block'; bar.style.width = '0%';
+  document.getElementById('btn-export-json').disabled = true;
+  document.getElementById('btn-export-csv').disabled = true;
+
+  const result = {
+    exported_at: new Date().toISOString(),
+    app: 'spotify-playlist-backup',
+    user_id: userProfile?.id,
+    user_name: userProfile?.display_name,
+    playlists: []
+  };
+
+  for (let i = 0; i < sel.length; i++) {
+    const p = sel[i];
+    addLog(log, `[${i + 1}/${sel.length}] "${p.name}"...`);
+    const obj = {
+      id: p.id, name: p.name,
+      description: p.description || '',
+      public: p.public, collaborative: p.collaborative,
+      tracks_total: p.tracks.total,
+      owner: p.owner?.id || ''
+    };
+    if (incImg && p.images && p.images[0]) obj.image_url = p.images[0].url;
+    if (incTracks) {
+      const tracks = await getPlaylistTracks(p.id);
+      obj.tracks = tracks.map(t => ({
+        uri: t.track.uri,
+        name: t.track.name,
+        artists: t.track.artists.map(a => a.name).join(', '),
+        album: t.track.album?.name || '',
+        duration_ms: t.track.duration_ms,
+        added_at: t.added_at,
+        added_by: t.added_by?.id || ''
+      }));
+      addLog(log, `  → ${obj.tracks.length} lagu`);
+    }
+    result.playlists.push(obj);
+    bar.style.width = ((i + 1) / sel.length * 100) + '%';
+  }
+
+  download(JSON.stringify(result, null, 2), `spotify-backup-${today()}.json`, 'application/json');
+  addLog(log, `\n✓ Selesai! ${sel.length} playlist diexport.`);
+  showStatus('Export JSON berhasil!', 'success');
+  document.getElementById('btn-export-json').disabled = false;
+  document.getElementById('btn-export-csv').disabled = false;
+}
+
+async function exportCSV() {
+  const sel = getSelected();
+  if (!sel.length) { showStatus('Pilih minimal 1 playlist!', 'danger'); return; }
+  const log = document.getElementById('exp-log');
+  const wrap = document.getElementById('exp-prog-wrap');
+  const bar = document.getElementById('exp-prog-bar');
+  log.style.display = 'block'; log.textContent = '';
+  wrap.style.display = 'block'; bar.style.width = '0%';
+  document.getElementById('btn-export-json').disabled = true;
+  document.getElementById('btn-export-csv').disabled = true;
+  addLog(log, 'Mengambil data...');
+
+  let rows = [['Playlist', 'Track Name', 'Artists', 'Album', 'Duration (ms)', 'Added At', 'Added By', 'URI']];
+  for (let i = 0; i < sel.length; i++) {
+    const p = sel[i];
+    const tracks = await getPlaylistTracks(p.id);
+    tracks.forEach(t => {
+      rows.push([p.name, t.track.name, t.track.artists.map(a => a.name).join('; '), t.track.album?.name || '', t.track.duration_ms || '', t.added_at || '', t.added_by?.id || '', t.track.uri]);
+    });
+    bar.style.width = ((i + 1) / sel.length * 100) + '%';
+    addLog(log, `${p.name}: ${tracks.length} lagu`);
+  }
+
+  const csv = rows.map(r => r.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  download('\uFEFF' + csv, `spotify-tracks-${today()}.csv`, 'text/csv;charset=utf-8');
+  showStatus('Export CSV berhasil!', 'success');
+  document.getElementById('btn-export-json').disabled = false;
+  document.getElementById('btn-export-csv').disabled = false;
+}
+
+// ── IMPORT ──
+function loadImportFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  readFile(file);
+}
+
+function dropFile(e) {
+  e.preventDefault(); dragLeave(e);
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  readFile(file);
+}
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { importData = JSON.parse(ev.target.result); showImportPreview(); }
+    catch { showStatus('File tidak valid atau bukan JSON!', 'danger'); }
+  };
+  reader.readAsText(file);
+}
+
+function showImportPreview() {
+  if (!importData || !importData.playlists) { showStatus('Format backup tidak dikenali.', 'danger'); return; }
+  const pls = importData.playlists;
+  document.getElementById('import-meta').innerHTML =
+    `Backup dari: <strong>${importData.exported_at?.slice(0, 10) || '?'}</strong> &nbsp;·&nbsp; User: <strong>${importData.user_name || importData.user_id || '?'}</strong> &nbsp;·&nbsp; ${pls.length} playlist`;
+  document.getElementById('import-list').innerHTML = pls.map(p => `
+    <div class="pl-item" style="cursor:default">
+      <div class="pl-img-ph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+      <div class="pl-info">
+        <div class="pl-name">${esc(p.name)}</div>
+        <div class="pl-meta">${(p.tracks || []).length} lagu tersimpan · ${p.public ? 'Publik' : 'Privat'}</div>
+      </div>
+      <span class="badge ${p.tracks && p.tracks.length ? 'badge-green' : 'badge-gray'}">${p.tracks && p.tracks.length ? 'dengan lagu' : 'nama saja'}</span>
+    </div>
+  `).join('');
+  document.getElementById('import-preview').style.display = 'block';
+}
+
+async function startImport() {
+  if (!importData) return;
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true;
+  const log = document.getElementById('imp-log');
+  const wrap = document.getElementById('imp-prog-wrap');
+  const bar = document.getElementById('imp-prog-bar');
+  log.style.display = 'block'; log.textContent = '';
+  wrap.style.display = 'block'; bar.style.width = '0%';
+
+  const pls = importData.playlists;
+  let ok = 0, fail = 0;
+  for (let i = 0; i < pls.length; i++) {
+    const p = pls[i];
+    addLog(log, `[${i + 1}/${pls.length}] Membuat "${p.name}"...`);
+    const resp = await fetch(`https://api.spotify.com/v1/users/${userProfile.id}/playlists`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: p.name, description: p.description || '', public: p.public ?? false, collaborative: p.collaborative ?? false })
+    });
+    if (!resp.ok) { addLog(log, `  ✗ Gagal membuat playlist`); fail++; continue; }
+    const created = await resp.json();
+    if (p.tracks && p.tracks.length) {
+      const uris = p.tracks.map(t => t.uri).filter(Boolean);
+      for (let j = 0; j < uris.length; j += 100) {
+        await fetch(`https://api.spotify.com/v1/playlists/${created.id}/tracks`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uris: uris.slice(j, j + 100) })
+        });
+      }
+      addLog(log, `  ✓ ${uris.length} lagu ditambahkan`);
+    }
+    ok++;
+    bar.style.width = ((i + 1) / pls.length * 100) + '%';
+  }
+  addLog(log, `\n✓ Import selesai! ${ok} berhasil${fail ? ', ' + fail + ' gagal' : ''}.`);
+  showStatus(`Import selesai! ${ok} playlist berhasil dibuat di Spotify.`, 'success');
+  btn.disabled = false;
+}
+
+// ── UTILS ──
+function switchTab(tab) {
+  document.getElementById('panel-export').style.display = tab === 'export' ? 'block' : 'none';
+  document.getElementById('panel-import').style.display = tab === 'import' ? 'block' : 'none';
+  document.getElementById('tab-export').className = 'tab' + (tab === 'export' ? ' active' : '');
+  document.getElementById('tab-import').className = 'tab' + (tab === 'import' ? ' active' : '');
+}
+
+function dragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag'); }
+function dragLeave() { document.getElementById('drop-zone').classList.remove('drag'); }
+
+function showStatus(html, type) {
+  const el = document.getElementById('status-bar');
+  el.innerHTML = html; el.className = type;
+  el.style.display = 'flex';
+}
+function hideStatus() { document.getElementById('status-bar').style.display = 'none'; }
+function addLog(el, msg) { el.textContent += msg + '\n'; el.scrollTop = el.scrollHeight; }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function today() { return new Date().toISOString().slice(0, 10); }
+function download(content, filename, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename; a.click();
+}
+</script>
+</body>
+</html>
