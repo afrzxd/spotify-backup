@@ -482,27 +482,92 @@
 
     <!-- IMPORT PANEL -->
     <div id="panel-import" style="display:none">
-      <div class="card">
-        <div class="card-title">Import dari File Backup</div>
-        <div class="drop-zone" id="drop-zone"
-          onclick="document.getElementById('import-file').click()"
-          ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
-          <div class="drop-icon">📂</div>
-          <p>Klik atau drag & drop file backup di sini</p>
-          <p class="small">Format: .json (hasil export dari tool ini)</p>
-        </div>
-        <input type="file" id="import-file" accept=".json" style="display:none" onchange="loadImportFile(event)">
 
-        <div id="import-preview" style="display:none;margin-top:20px">
-          <div class="card-title" style="margin-bottom:10px">Preview Backup</div>
-          <div id="import-meta" style="font-size:12px;color:var(--text3);margin-bottom:12px"></div>
-          <div class="pl-list" id="import-list"></div>
-          <div class="progress-wrap" id="imp-prog-wrap"><div class="progress-bar" id="imp-prog-bar"></div></div>
-          <div class="log-box" id="imp-log"></div>
-          <button class="btn btn-primary" id="btn-import" onclick="startImport()" style="margin-top:14px">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Import ke Spotify
-          </button>
+      <!-- sub tabs: exportify vs json -->
+      <div style="display:flex;gap:4px;margin-bottom:16px;background:var(--surface2);border-radius:var(--radius);padding:3px;border:1px solid var(--border)">
+        <button class="tab active" id="subtab-exportify" onclick="switchSubTab('exportify')" style="font-size:12px;padding:7px 12px">
+          📄 CSV dari Exportify
+        </button>
+        <button class="tab" id="subtab-json" onclick="switchSubTab('json')" style="font-size:12px;padding:7px 12px">
+          🗂 JSON Backup
+        </button>
+      </div>
+
+      <!-- EXPORTIFY PANEL -->
+      <div id="sub-exportify">
+        <div class="card">
+          <div class="card-title">Cara dapat CSV dari Exportify</div>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-body">Buka <a href="https://exportify.net" target="_blank">exportify.net</a> → login Spotify → pilih playlist yang mau dibackup</div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-body">Klik <strong>Export</strong> di setiap playlist, atau <strong>Export All</strong> untuk semua sekaligus (hasil ZIP)</div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-body">Upload file CSV-nya di bawah. Kalau ZIP, extract dulu lalu upload satu per satu atau semua sekaligus</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Upload CSV Exportify</div>
+          <div class="drop-zone" id="drop-zone-csv"
+            onclick="document.getElementById('import-csv').click()"
+            ondragover="dragOver(event,'drop-zone-csv')" ondragleave="dragLeave('drop-zone-csv')" ondrop="dropFileCsv(event)">
+            <div class="drop-icon">📊</div>
+            <p>Klik atau drag & drop file CSV di sini</p>
+            <p class="small">Bisa upload beberapa file sekaligus (.csv dari exportify.net)</p>
+          </div>
+          <input type="file" id="import-csv" accept=".csv" multiple style="display:none" onchange="loadCsvFiles(event)">
+
+          <div id="csv-preview" style="display:none;margin-top:20px">
+            <div class="card-title" style="margin-bottom:10px">Playlist yang akan diimport</div>
+            <div id="csv-meta" style="font-size:12px;color:var(--text3);margin-bottom:12px"></div>
+            <div class="pl-list" id="csv-list"></div>
+
+            <div style="margin-top:14px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
+              <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Nama playlist (edit jika perlu)</div>
+              <div id="csv-name-inputs"></div>
+            </div>
+
+            <div class="progress-wrap" id="csv-prog-wrap"><div class="progress-bar" id="csv-prog-bar"></div></div>
+            <div class="log-box" id="csv-log"></div>
+            <button class="btn btn-primary" id="btn-import-csv" onclick="startCsvImport()" style="margin-top:14px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import ke Spotify
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- JSON PANEL -->
+      <div id="sub-json" style="display:none">
+        <div class="card">
+          <div class="card-title">Import dari JSON Backup</div>
+          <div class="drop-zone" id="drop-zone-json"
+            onclick="document.getElementById('import-file').click()"
+            ondragover="dragOver(event,'drop-zone-json')" ondragleave="dragLeave('drop-zone-json')" ondrop="dropFileJson(event)">
+            <div class="drop-icon">📂</div>
+            <p>Klik atau drag & drop file backup di sini</p>
+            <p class="small">Format: .json (hasil export dari tool ini)</p>
+          </div>
+          <input type="file" id="import-file" accept=".json" style="display:none" onchange="loadImportFile(event)">
+
+          <div id="import-preview" style="display:none;margin-top:20px">
+            <div class="card-title" style="margin-bottom:10px">Preview Backup</div>
+            <div id="import-meta" style="font-size:12px;color:var(--text3);margin-bottom:12px"></div>
+            <div class="pl-list" id="import-list"></div>
+            <div class="progress-wrap" id="imp-prog-wrap"><div class="progress-bar" id="imp-prog-bar"></div></div>
+            <div class="log-box" id="imp-log"></div>
+            <button class="btn btn-primary" id="btn-import" onclick="startImport()" style="margin-top:14px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import ke Spotify
+            </button>
+          </div>
         </div>
       </div>
 
@@ -853,6 +918,192 @@ async function startImport() {
   addLog(log, `\n✓ Import selesai! ${ok} berhasil${fail ? ', ' + fail + ' gagal' : ''}.`);
   showStatus(`Import selesai! ${ok} playlist berhasil dibuat di Spotify.`, 'success');
   btn.disabled = false;
+}
+
+// ── CSV IMPORT (Exportify) ──
+let csvPlaylists = []; // [{name, tracks:[{uri,name,artists}]}]
+
+function loadCsvFiles(e) {
+  const files = [...e.target.files]; if (!files.length) return;
+  processCsvFiles(files);
+}
+
+function dropFileCsv(e) {
+  e.preventDefault(); dragLeave('drop-zone-csv');
+  const files = [...e.dataTransfer.files].filter(f => f.name.endsWith('.csv'));
+  if (!files.length) { showStatus('Upload file .csv dari Exportify!', 'danger'); return; }
+  processCsvFiles(files);
+}
+
+function dropFileJson(e) {
+  e.preventDefault(); dragLeave('drop-zone-json');
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  readFile(file);
+}
+
+function processCsvFiles(files) {
+  csvPlaylists = [];
+  let done = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const parsed = parseCsv(ev.target.result, file.name);
+      if (parsed) csvPlaylists.push(parsed);
+      done++;
+      if (done === files.length) showCsvPreview();
+    };
+    reader.readAsText(file, 'UTF-8');
+  });
+}
+
+function parseCsv(text, filename) {
+  // strip BOM
+  text = text.replace(/^\uFEFF/, '');
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+
+  // parse header
+  const header = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
+
+  // detect columns - Exportify format:
+  // Spotify URI, Track Name, Artist Name(s), Album Name, Disc Number, Track Number, Track Duration (ms), Added By, Added At
+  const uriIdx = header.findIndex(h => h.includes('uri') || h.includes('spotify'));
+  const nameIdx = header.findIndex(h => h.includes('track name') || h === 'name');
+  const artistIdx = header.findIndex(h => h.includes('artist'));
+  const albumIdx = header.findIndex(h => h.includes('album'));
+
+  if (uriIdx === -1 && nameIdx === -1) return null;
+
+  const tracks = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const uri = uriIdx >= 0 ? cols[uriIdx] : '';
+    const name = nameIdx >= 0 ? cols[nameIdx] : '';
+    const artists = artistIdx >= 0 ? cols[artistIdx] : '';
+    const album = albumIdx >= 0 ? cols[albumIdx] : '';
+    if (uri && uri.startsWith('spotify:track:')) {
+      tracks.push({ uri, name, artists, album });
+    } else if (name) {
+      // fallback: no URI, store name for logging
+      tracks.push({ uri: null, name, artists, album });
+    }
+  }
+
+  // playlist name = filename without .csv
+  const plName = filename.replace(/\.csv$/i, '').replace(/_/g, ' ');
+  return { name: plName, tracks };
+}
+
+function parseCsvLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur.trim()); cur = '';
+    } else cur += ch;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function showCsvPreview() {
+  if (!csvPlaylists.length) { showStatus('Tidak ada data valid ditemukan di CSV.', 'danger'); return; }
+  const validTotal = csvPlaylists.reduce((s, p) => s + p.tracks.filter(t => t.uri).length, 0);
+  document.getElementById('csv-meta').innerHTML =
+    `${csvPlaylists.length} playlist · ${validTotal} lagu dengan URI valid`;
+
+  document.getElementById('csv-list').innerHTML = csvPlaylists.map((p, i) => {
+    const valid = p.tracks.filter(t => t.uri).length;
+    const invalid = p.tracks.length - valid;
+    return `<div class="pl-item" style="cursor:default">
+      <div class="pl-img-ph"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+      <div class="pl-info">
+        <div class="pl-name">${esc(p.name)}</div>
+        <div class="pl-meta">${valid} lagu${invalid ? ' · ' + invalid + ' tanpa URI (skip)' : ''}</div>
+      </div>
+      <span class="badge badge-green">${valid} lagu</span>
+    </div>`;
+  }).join('');
+
+  // editable name inputs
+  document.getElementById('csv-name-inputs').innerHTML = csvPlaylists.map((p, i) =>
+    `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:12px;color:var(--text3);min-width:60px">Playlist ${i+1}</span>
+      <input type="text" id="csv-name-${i}" value="${esc(p.name)}" style="margin-bottom:0;flex:1;font-size:13px">
+    </div>`
+  ).join('');
+
+  document.getElementById('csv-preview').style.display = 'block';
+}
+
+async function startCsvImport() {
+  if (!csvPlaylists.length) return;
+  const btn = document.getElementById('btn-import-csv');
+  btn.disabled = true;
+  const log = document.getElementById('csv-log');
+  const wrap = document.getElementById('csv-prog-wrap');
+  const bar = document.getElementById('csv-prog-bar');
+  log.style.display = 'block'; log.textContent = '';
+  wrap.style.display = 'block'; bar.style.width = '0%';
+
+  let ok = 0, fail = 0;
+  for (let i = 0; i < csvPlaylists.length; i++) {
+    const p = csvPlaylists[i];
+    const customName = document.getElementById(`csv-name-${i}`)?.value.trim() || p.name;
+    const uris = p.tracks.map(t => t.uri).filter(Boolean);
+
+    addLog(log, `[${i+1}/${csvPlaylists.length}] Membuat "${customName}" (${uris.length} lagu)...`);
+
+    const resp = await fetch(`https://api.spotify.com/v1/users/${userProfile.id}/playlists`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: customName, description: 'Imported via Spotify Playlist Backup', public: false })
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      addLog(log, `  ✗ Gagal membuat playlist: ${errText}`);
+      fail++; continue;
+    }
+
+    const created = await resp.json();
+    let added = 0;
+    for (let j = 0; j < uris.length; j += 100) {
+      const chunk = uris.slice(j, j + 100);
+      const r = await fetch(`https://api.spotify.com/v1/playlists/${created.id}/tracks`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uris: chunk })
+      });
+      if (r.ok) added += chunk.length;
+      // rate limit handling
+      if (r.status === 429) {
+        const retry = r.headers.get('Retry-After') || 2;
+        addLog(log, `  ⏳ Rate limit, tunggu ${retry}s...`);
+        await new Promise(res => setTimeout(res, retry * 1000));
+        j -= 100; // retry chunk
+      }
+    }
+    addLog(log, `  ✓ ${added} lagu berhasil ditambahkan`);
+    ok++;
+    bar.style.width = ((i + 1) / csvPlaylists.length * 100) + '%';
+  }
+
+  addLog(log, `\n✓ Selesai! ${ok} playlist berhasil${fail ? ', ' + fail + ' gagal' : ''}.`);
+  showStatus(`Import selesai! ${ok} playlist dibuat di Spotify kamu.`, 'success');
+  btn.disabled = false;
+}
+
+// ── SUBTAB ──
+function switchSubTab(tab) {
+  document.getElementById('sub-exportify').style.display = tab === 'exportify' ? 'block' : 'none';
+  document.getElementById('sub-json').style.display = tab === 'json' ? 'block' : 'none';
+  document.getElementById('subtab-exportify').className = 'tab' + (tab === 'exportify' ? ' active' : '');
+  document.getElementById('subtab-json').className = 'tab' + (tab === 'json' ? ' active' : '');
 }
 
 // ── UTILS ──
